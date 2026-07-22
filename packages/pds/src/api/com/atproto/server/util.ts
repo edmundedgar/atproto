@@ -84,7 +84,6 @@ export const assertValidDidDocumentForService = async (
     await assertValidDocContents(ctx, did, {
       pdsEndpoint: resolved.services['atproto_pds']?.endpoint,
       signingKey: resolved.verificationMethods['atproto'],
-      rotationKeys: resolved.rotationKeys,
     })
   } else {
     const resolved = await ctx.idResolver.did.resolve(did, true)
@@ -108,18 +107,13 @@ const assertValidDocContents = async (
   contents: {
     signingKey?: string
     pdsEndpoint?: string
-    rotationKeys?: string[]
   },
 ) => {
-  const { signingKey, pdsEndpoint, rotationKeys } = contents
+  const { signingKey, pdsEndpoint } = contents
 
-  const plcRotationKey =
-    ctx.cfg.entryway?.plcRotationKey ?? ctx.plcRotationKey.did()
-  if (rotationKeys !== undefined && !rotationKeys.includes(plcRotationKey)) {
-    throw new InvalidRequestError(
-      'Server rotation key not included in PLC DID data',
-    )
-  }
+  // NOTE: upstream also required rotationKeys to include the PDS's own
+  // plcRotationKey here. That's incompatible with self-custodied rotation
+  // keys, where the PDS never holds one, so we don't enforce it.
 
   if (!pdsEndpoint || pdsEndpoint !== ctx.cfg.service.publicUrl) {
     throw new InvalidRequestError(
