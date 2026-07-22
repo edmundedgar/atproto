@@ -247,7 +247,9 @@ const validateInputsForLocalPds = async (
 
   // determine the did & any plc ops we need to send
   // if the provided did document is poorly setup, we throw
-  const signingKey = await Secp256k1Keypair.create({ exportable: true })
+  let signingKey: ExportableKeypair = await Secp256k1Keypair.create({
+    exportable: true,
+  })
 
   let did: DidString
   let plcOp: plc.Operation | null
@@ -257,6 +259,15 @@ const validateInputsForLocalPds = async (
       throw new AuthRequiredError(
         `Missing auth to create account with did: ${input.did}`,
       )
+    }
+    // Honor a key reserved via reserveSigningKey, same as the entryway path
+    // below. Without this, a client that reserves a key and publishes it in
+    // their DID doc's #atproto verification method before calling us ends up
+    // with an actor store key that doesn't match what they published, and
+    // activateAccount's DID doc check fails forever after.
+    const reservedKey = await ctx.actorStore.getReservedKeypair(input.did)
+    if (reservedKey) {
+      signingKey = reservedKey
     }
     did = input.did
     plcOp = null
