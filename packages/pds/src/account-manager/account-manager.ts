@@ -325,12 +325,16 @@ export class AccountManager {
       options,
     )
 
-    if (did.startsWith('did:plc:')) {
-      // @TODO We should verify the status before issuing a PLC update.
-      await this.plcClient.updateHandle(did, this.plcRotationKey, handle)
-    } else {
-      const resolved = await this.idResolver.did.resolveAtprotoData(did, true)
-      if (resolved.handle !== handle) {
+    // If the DID document already shows this handle - e.g. a self-custodied
+    // account whose owner published the change directly, holding their own
+    // rotation key rather than this PDS's - there's nothing left to submit.
+    // Skip straight to syncing local state below. This also covers did:web,
+    // which was never something this PDS could publish on its own.
+    const resolved = await this.idResolver.did.resolveAtprotoData(did, true)
+    if (resolved.handle !== handle) {
+      if (did.startsWith('did:plc:')) {
+        await this.plcClient.updateHandle(did, this.plcRotationKey, handle)
+      } else {
         throw new InvalidRequestError(
           'DID is not properly configured for handle',
         )
